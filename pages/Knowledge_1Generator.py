@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-api_key = os.getenv("OPEN_API_KEY")
-azure_endpoint = os.getenv("AZURE_ENDPOINT")
-api_version = os.getenv("API_VERSION")
-deployment_name = os.getenv("DEPLOYMENT_NAME")
+llm_api_key = os.getenv("LLM_API_KEY")
+llm_endpoint = os.getenv("LLM_ENDPOINT")
+llm_api_version = os.getenv("LLM_API_VERSION")
+llm_deployment_name = os.getenv("LLM_DEPLOYMENT_NAME")
 
 # AZURE_API_KEY
 # AZURE_ENDPOINT
@@ -39,7 +39,7 @@ st.title("🗄️ DB Schema to RAG Knowledge Generator")
 st.markdown("---")
 
 # 스키마 입력 방법 선택
-input_method = st.radio("스키마 입력 방법을 선택하세요:", ["텍스트 입력", "JSON 파일 업로드", "SQL DDL 입력"])
+input_method = st.radio("스키마 입력 방법을 선택하세요:", ["SQL DDL 입력", "텍스트 입력", "JSON 파일 업로드" ])
 
 schema_data = None
 
@@ -110,10 +110,10 @@ st.subheader("⚙️ 지식정보 생성 옵션")
 col1, col2 = st.columns(2)
 
 with col1:
-    knowledge_type = st.selectbox(
-        "지식정보 유형:",
-        ["종합 문서", "테이블별 문서", "관계형 다이어그램", "FAQ 형식"]
-    )
+    # knowledge_type = st.selectbox(
+    #     "지식정보 유형:",
+    #     ["종합 문서", "테이블별 문서", "관계형 다이어그램", "FAQ 형식"]
+    # )
     
     output_format = st.selectbox(
         "출력 형식:",
@@ -127,7 +127,9 @@ with col2:
     include_indexing = st.checkbox("인덱싱 가이드 포함", value=False)
 
 # 프롬프트 템플릿 정의
-def get_prompt_template(knowledge_type, options):
+#**문서 유형:** {knowledge_type}
+
+def get_prompt_template(options):
     base_prompt = f"""
 당신은 데이터베이스 전문가입니다. 주어진 데이터베이스 스키마를 분석하여 RAG(Retrieval-Augmented Generation) 시스템에서 활용할 수 있는 포괄적인 지식정보 문서를 생성해주세요.
 
@@ -139,7 +141,7 @@ def get_prompt_template(knowledge_type, options):
 5. 일반적인 쿼리 패턴과 사용 사례 제시
 
 **출력 형식:** {output_format}
-**문서 유형:** {knowledge_type}
+
 """
     
     if options.get('include_examples', False):
@@ -160,14 +162,14 @@ def get_prompt_template(knowledge_type, options):
 
 # Azure OpenAI 클라이언트 초기화
 def initialize_azure_client():
-    if not all([azure_endpoint, api_key, deployment_name]):
+    if not all([llm_endpoint, llm_api_key, llm_deployment_name]):
         return None
     
     try:
         client = AzureOpenAI(
-            azure_endpoint=azure_endpoint,
-            api_key=api_key,
-            api_version=api_version
+            azure_endpoint=llm_endpoint,
+            api_key=llm_api_key,
+            api_version=llm_api_version
         )
         return client
     except Exception as e:
@@ -175,9 +177,9 @@ def initialize_azure_client():
         return None
 
 # 지식정보 생성 함수
-def generate_knowledge(client, schema_data, knowledge_type, options):
+def generate_knowledge(client, schema_data, options):
     try:
-        prompt_template = get_prompt_template(knowledge_type, options)
+        prompt_template = get_prompt_template(options)
         
         # 스키마 데이터를 문자열로 변환
         if isinstance(schema_data, dict):
@@ -188,7 +190,7 @@ def generate_knowledge(client, schema_data, knowledge_type, options):
         prompt = prompt_template.format(schema=schema_str)
         
         response = client.chat.completions.create(
-            model=deployment_name,
+            model=llm_deployment_name,
             messages=[
                 {"role": "system", "content": "당신은 데이터베이스 전문가이며, 명확하고 구조화된 문서를 작성하는 것을 전문으로 합니다."},
                 {"role": "user", "content": prompt}
@@ -206,9 +208,11 @@ def generate_knowledge(client, schema_data, knowledge_type, options):
 if st.button("🚀 지식정보 생성", type="primary"):
     if not schema_data:
         st.error("스키마 정보를 입력해주세요!")
-    elif not all([azure_endpoint, api_key, deployment_name]):
+    elif not all([llm_endpoint, llm_api_key, llm_deployment_name]):
+        
         st.error("Azure OpenAI 설정을 완료해주세요!")
     else:
+        st.write(llm_deployment_name)
         with st.spinner("지식정보를 생성하고 있습니다..."):
             client = initialize_azure_client()
             if client:
@@ -219,7 +223,7 @@ if st.button("🚀 지식정보 생성", type="primary"):
                     'include_indexing': include_indexing
                 }
                 
-                knowledge = generate_knowledge(client, schema_data, knowledge_type, options)
+                knowledge = generate_knowledge(client, schema_data, options)
                 
                 if knowledge:
                     st.success("지식정보가 성공적으로 생성되었습니다!")
@@ -270,22 +274,10 @@ if st.button("🚀 지식정보 생성", type="primary"):
 # 사용법 가이드
 with st.expander("📚 사용법 가이드"):
     st.markdown("""
-    ### 🔧 Azure OpenAI 설정
-    1. Azure Portal에서 OpenAI 리소스 생성
-    2. 엔드포인트 URL과 API 키 복사
-    3. GPT-4 또는 GPT-3.5-turbo 모델 배포
-    4. 배포 이름 확인
-    
     ### 📝 스키마 입력 방법
     - **텍스트 입력**: 자유 형식으로 테이블 구조 입력
     - **JSON 파일**: 구조화된 JSON 형식의 스키마 업로드
     - **SQL DDL**: CREATE TABLE 문 직접 입력
-    
-    ### 🎯 지식정보 유형
-    - **종합 문서**: 모든 테이블을 포함한 통합 문서
-    - **테이블별 문서**: 각 테이블별로 별도 섹션
-    - **관계형 다이어그램**: 테이블 간 관계 중심 설명
-    - **FAQ 형식**: 질문-답변 형식의 문서
     
     ### 💡 활용 팁
     - 상세한 스키마 정보를 제공할수록 더 정확한 지식정보가 생성됩니다
@@ -296,3 +288,12 @@ with st.expander("📚 사용법 가이드"):
 # 푸터
 st.markdown("---")
 st.markdown("🔧 **DB Schema to RAG Knowledge Generator** | Made with Streamlit & Azure OpenAI")
+
+
+
+
+    # ### 🎯 지식정보 유형
+    # - **종합 문서**: 모든 테이블을 포함한 통합 문서
+    # - **테이블별 문서**: 각 테이블별로 별도 섹션
+    # - **관계형 다이어그램**: 테이블 간 관계 중심 설명
+    # - **FAQ 형식**: 질문-답변 형식의 문서

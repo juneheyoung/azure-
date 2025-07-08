@@ -8,23 +8,30 @@ from langchain.prompts import PromptTemplate
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain.schema import Document
 import json
-
 from dotenv import load_dotenv
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from openai import AzureOpenAI
+from azure.search.documents.indexes import SearchIndexClient
+from datetime import datetime
+
+
 load_dotenv()
 
-azure_api_key = os.getenv("OPEN_API_KEY")
-azure_endpoint = os.getenv("AZURE_ENDPOINT")
-api_version = os.getenv("API_VERSION")
-llm_deployment = os.getenv("DEPLOYMENT_NAME")
+llm_api_key = os.getenv("LLM_API_KEY")    
+llm_endpoint = os.getenv("LLM_ENDPOINT")  
+llm_api_version = os.getenv("LLM_API_VERSION")  
+llm_deployment_name = os.getenv("LLM_DEPLOYMENT_NAME")
+
+llm_deployment = os.getenv("LLM_DEPLOYMENT_NAME")
+
 embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT")
+embedding_endpoint = os.getenv("EMBEDDING_ENDPOINT")
+embedding_api_key = os.getenv("EMBEDDING_API_KEY")
 search_endpoint = os.getenv("AZURE_AI_SEARCH_ENDPOINT")
 search_key = os.getenv("AZURE_AI_SERACH_KEY")
-index_name = "langchain-vector-demo"
-# vector_store_address = os.getenv("AZURE_AI_SEARCH_ENDPOINT")
-# vector_store_password = os.getenv("AZURE_AI_SERACH_KEY")
-azure_embedding_endpoint = os.getenv("EMBEDDING_ENDPOINT")
-azure_embedding_api_key = os.getenv("EMBEDDING_API_KEY")
-#azure_embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT")
+
+
 
 
 # Streamlit 페이지 설정
@@ -38,29 +45,54 @@ st.markdown("Azure AI Search에 저장된 지식을 활용한 질의응답 시�
 
 
 
-# 검색 및 답변 설정
-with st.sidebar.expander("🎯 검색 및 답변 설정"):
-    k = st.slider("검색할 문서 수", min_value=1, max_value=20, value=5)
-    search_type = st.selectbox("검색 유형", ["similarity", "mmr", "similarity_score_threshold"])
+# 검색 및 답변 설정 (메뉴바 제거 / 인덱스 설정하는 부분 추가 )
+
+    # k = st.slider("검색할 문서 수", min_value=1, max_value=20, value=5)
+    # search_type = st.selectbox("검색 유형", ["similarity", "mmr", "similarity_score_threshold"])
     
-    if search_type == "similarity_score_threshold":
-        score_threshold = st.slider("유사도 임계값", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
+    # if search_type == "similarity_score_threshold":
+    #     score_threshold = st.slider("유사도 임계값", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     
-    temperature = st.slider("답변 창의성", min_value=0.0, max_value=1.0, value=0.3, step=0.1)
-    max_tokens = st.slider("최대 토큰 수", min_value=100, max_value=2000, value=1000, step=100)
+    # temperature = st.slider("답변 창의성", min_value=0.0, max_value=1.0, value=0.3, step=0.1)
+    # max_tokens = st.slider("최대 토큰 수", min_value=100, max_value=2000, value=1000, step=100)
+st.subheader("📊 인덱스 설정")
+try:
+# SearchIndexClient 생성
+    credential = AzureKeyCredential(search_key)
+    client = SearchIndexClient(endpoint=search_endpoint, credential=credential)
+    indexes = client.list_indexes()
+    name_box = []
+    if indexes :
+        for index in indexes:
+            name_box.append(index.name)
+    st.subheader("index 설정")
+    selected_selectbox = st.selectbox("항목을 선택하세요:", name_box)
+    st.write("선택된 항목:", selected_selectbox)
+    st.divider()
+    index_name = selected_selectbox
+except Exception as e:
+    print(f"Error: {e}")
+
+# search 클라이언트 초기화
+search_client = SearchClient(
+    endpoint=search_endpoint,
+    index_name=index_name,
+    credential=AzureKeyCredential(search_key)
+)
 
 # 초기화 함수
 @st.cache_resource
-def initialize_rag_system(azure_api_key,azure_endpoint,api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
-                          index_name,azure_embedding_endpoint,azure_embedding_api_key):
+def initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
+                          index_name,embedding_endpoint,embedding_api_key):
     """RAG 시스템 초기화"""
     try:
+
         # Azure OpenAI 임베딩 모델 초기화
         embeddings = AzureOpenAIEmbeddings(
             azure_deployment=embedding_deployment,
-            #openai_api_version=api_version,
-            azure_endpoint=azure_embedding_endpoint,
-            api_key=azure_embedding_api_key
+            #openai_api_version=llm_api_version,
+            azure_endpoint=embedding_endpoint,
+            api_key=embedding_api_key
         )
         
         # Azure AI Search 벡터 스토어 초기화
@@ -73,10 +105,11 @@ def initialize_rag_system(azure_api_key,azure_endpoint,api_version,llm_deploymen
         
         # Azure OpenAI LLM 초기화
         llm = AzureOpenAI(
-            azure_deployment=llm_deployment,
-            openai_api_version=api_version,
-            azure_endpoint=azure_endpoint,
-            api_key=azure_api_key,
+            # deployment_name=llm_deployment,
+            # model_name = "gpt-4o",
+            api_version=llm_api_version,
+            azure_endpoint=llm_endpoint,
+            api_key=llm_api_key,
             #temperature=temperature,
             #max_tokens=max_tokens
         )
@@ -107,74 +140,59 @@ def get_prompt_template():
     """
     return PromptTemplate(template=template, input_variables=["context", "question"])
 
+def generate_answer(llm, prompt):
+    """LLM을 사용하여 답변 생성"""
+    try:
+        response = llm.invoke(prompt)
+        return response
+    except Exception as e:
+        st.error(f"답변 생성 중 오류 발생: {str(e)}")
+        return None
+
+
 # 메인 애플리케이션
 def main():
     # 필수 설정 확인
-    if not all([azure_endpoint, azure_api_key, search_endpoint, search_key, index_name]):
+    if not all([llm_endpoint, llm_api_key, search_endpoint, search_key, index_name]):
         st.warning("⚠️ 모든 필수 설정을 입력해주세요.")
         return
     
     # RAG 시스템 초기화
-    vector_store, llm, embeddings = initialize_rag_system(azure_api_key,azure_endpoint,api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
-                          index_name,azure_embedding_endpoint,azure_embedding_api_key)
+    vector_store, llm, embeddings = initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
+                          index_name,embedding_endpoint,embedding_api_key)
     if vector_store is None or llm is None:
         st.error("RAG 시스템 초기화에 실패했습니다.")
         return
-    
-    # embeddings = AzureOpenAIEmbeddings(
-    #     azure_deployment=azure_embedding_deployment,  # 실제 배포 이름
-    #     #openai_api_version="2024-02-01",
-    #     azure_endpoint=azure_embedding_endpoint,
-    #     api_key=azure_embedding_api_key 
-    # )
 
-    # vector_store = AzureSearch(
-    #     azure_search_endpoint=search_endpoint,
-    #     azure_search_key=search_key,
-    #     index_name="langchain-vector-demo",  # 기존 인덱스 이름
-    #     embedding_function=embeddings,
-    # )
-
-    # llm = AzureOpenAI(
-    # azure_endpoint=azure_endpoint,
-    # api_key=azure_api_key,
-    # api_version=api_version,
-    # model = llm_deployment
-    # )
-    # llm = AzureOpenAI(
-    # azure_deployment=llm_deployment,
-    # openai_api_version=api_version,
-    # azure_endpoint=azure_endpoint,
-    # api_key=azure_api_key,
-    #temperature=temperature,
-    #max_tokens=max_tokens
-    # )
-   # =    llm_deployment
 
     # 연결 테스트
-    col1, col2 = st.columns(2)
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     if st.button("🔍 벡터 스토어 연결 테스트"):
+    #         try:
+    #             # 간단한 검색 테스트
+    #             result = search_client.search("*", include_total_count=True, top=0)
+    #             document_count = result.get_count()
+
+    #             st.success(f"✅ 벡터 스토어 연결 성공! (인덱스: {index_name})")
+    #             st.info(f"검색된 문서 수: {document_count}")
+    #         except Exception as e:
+    #             st.error(f"❌ 벡터 스토어 연결 실패: {str(e)}")
     
-    with col1:
-        if st.button("🔍 벡터 스토어 연결 테스트"):
-            try:
-                # 간단한 검색 테스트
-                test_results = vector_store.similarity_search("테스트", k=1)
-                st.success(f"✅ 벡터 스토어 연결 성공! (인덱스: {index_name})")
-                st.info(f"검색된 문서 수: {len(test_results)}")
-            except Exception as e:
-                st.error(f"❌ 벡터 스토어 연결 실패: {str(e)}")
+    # with col2:
+    #     if st.button("🤖 LLM 연결 테스트"):
+    #         try:
+    #             test_response = llm.invoke("안녕하세요")
+    #             #llm.completions.create(prompt = "안녕하세요")
+    #             st.success("✅ LLM 연결 성공!")
+    #             st.info(f"테스트 응답: {test_response[:100]}...")
+    #         except Exception as e:
+    #             st.error(f"❌ LLM 연결 실패: {str(e)}")
     
-    with col2:
-        if st.button("🤖 LLM 연결 테스트"):
-            try:
-                test_response = llm.invoke("안녕하세요")
-                #llm.completions.create(prompt = "안녕하세요")
-                st.success("✅ LLM 연결 성공!")
-                st.info(f"테스트 응답: {test_response[:100]}...")
-            except Exception as e:
-                st.error(f"❌ LLM 연결 실패: {str(e)}")
+    # st.divider()
     
-    st.divider()
+            
+
     
     # 질의응답 섹션
     st.header("💬 질의응답")
@@ -198,23 +216,28 @@ def main():
         with st.spinner("검색 중..."):
             try:
                 # 검색 설정
-                search_kwargs = {"k": k}
-                if search_type == "similarity_score_threshold":
-                    search_kwargs["score_threshold"] = score_threshold
+                # search_kwargs = {"k": k}
+                # if search_type == "similarity_score_threshold":
+                    # search_kwargs["score_threshold"] = score_threshold
                 
                 # 벡터 스토어에서 관련 문서 검색
-                if search_type == "mmr":
-                    retrieved_docs = vector_store.max_marginal_relevance_search(
-                        question, k=k
+                # if search_type == "mmr":
+                st.write("test before")
+                # retrieved_docs = vector_store.max_marginal_relevance_search(
+                #     question, k=1
+                #     )
+                retrieved_docs = vector_store.similarity_search(
+                    question, k=1
                     )
-                elif search_type == "similarity_score_threshold":
-                    retrieved_docs = vector_store.similarity_search_with_relevance_scores(
-                        question, k=k
-                    )
-                    # 임계값 필터링
-                    retrieved_docs = [doc for doc, score in retrieved_docs if score >= score_threshold]
-                else:
-                    retrieved_docs = vector_store.similarity_search(question, k=k)
+                st.write("test after")
+                # # elif search_type == "similarity_score_threshold":
+                #     retrieved_docs = vector_store.similarity_search_with_relevance_scores(
+                #         question, k=k
+                #     )
+                #     # 임계값 필터링
+                #     retrieved_docs = [doc for doc, score in retrieved_docs if score >= score_threshold]
+                # else:
+                #     retrieved_docs = vector_store.similarity_search(question, k=k)
                 
                 # 검색 결과 표시
                 st.subheader("📚 검색된 관련 문서")
@@ -237,7 +260,20 @@ def main():
                     
                     with st.spinner("답변 생성 중..."):
                         try:
-                            response = llm.invoke(prompt)
+                            # response = llm.invoke(prompt)
+
+                            response_b = llm.chat.completions.create(
+                                model = llm_deployment,
+                                messages= [
+                                    {"role": "system", "content": "당신은 데이터베이스 전문가이며, 사용자의 질문에 맞는 쿼리문을 작성해주는 것을 전문으로 한다."},
+                                    {"role": "user", "content": prompt}
+                                ],
+                                temperature=0.7,
+                                max_tokens=8000
+                            )
+
+                            response = response_b.choices[0].message.content
+
                             st.write(response)
                             
                             # 대화 기록 저장
@@ -248,7 +284,7 @@ def main():
                                 "question": question,
                                 "answer": response,
                                 "retrieved_docs": len(retrieved_docs),
-                                "timestamp": st.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")                
                             })
                             
                         except Exception as e:
