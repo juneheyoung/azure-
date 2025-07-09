@@ -4,13 +4,33 @@ from datetime import datetime
 import time
 # from pages import Knowledge_1Generator, Knowledge_2Embedding,User_Question
 
+
 # 페이지 설정
 st.set_page_config(
     page_title="RAG 시스템",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    # initial_sidebar_state="expanded"
+    
 )
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    .css-1d391kg {
+        display: none !important;
+    }
+    .css-1rs6os {
+        display: none !important;
+    }
+    .css-17ziqus {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 
 # 사이드바 네비게이션
 # st.sidebar.title("🧠 RAG 시스템")
@@ -19,28 +39,18 @@ st.set_page_config(
 # 페이지 선택
 page = st.sidebar.selectbox(
     "페이지 선택",
-    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색"]
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색"],index=0
 )
-# if page:
-
-# if page == "메인 페이지":
-    # main.show()
-#         st.switch_page("main.py")
-#     elif page == "Page 1: 지식정보 생성":
-#         st.switch_page("pages/Knowledge_1Generator.py")
-#     elif page == "Page 2: 지식정보 임베딩":
-#         st.switch_page("pages/Knowledge_2Embedding.py")
-#     elif page == "Page 3: 질문 및 검색":
-#         st.switch_page("pages/User_Question.py")
-
-
-
 
 # 사이드바 정보
 # st.sidebar.markdown("---")
 st.sidebar.markdown("### 📊 시스템 상태")
-st.sidebar.info("✅ 시스템 정상 작동 중")
+# st.sidebar.info("✅ 시스템 정상 작동 중")
 st.sidebar.markdown(f"**현재 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+
+
+
 
 # 메인 페이지
 if page == "메인 페이지":

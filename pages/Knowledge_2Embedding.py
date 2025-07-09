@@ -15,9 +15,11 @@ from azure.search.documents.indexes import SearchIndexClient
 from azure.core.credentials import AzureKeyCredential
 import pandas as pd 
 from azure.search.documents import SearchClient
+from datetime import datetime
 
 load_dotenv()
 
+#환경변수
 llm_api_key = os.getenv("LLM_API_KEY")
 llm_endpoint = os.getenv("LLM_ENDPOINT")
 llm_api_version = os.getenv("LLM_API_VERSION")
@@ -28,7 +30,57 @@ azure_embedding_endpoint = os.getenv("EMBEDDING_ENDPOINT")
 azure_embedding_api_key = os.getenv("EMBEDDING_API_KEY")
 azure_embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT")
 
-# Option 2: Use AzureOpenAIEmbeddings with an Azure account
+# 사이드바 설정
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    .css-1d391kg {
+        display: none !important;
+    }
+    .css-1rs6os {
+        display: none !important;
+    }
+    .css-17ziqus {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+page = st.sidebar.selectbox(
+    "페이지 선택",
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=2
+    )
+st.sidebar.markdown("### 📊 시스템 상태")
+# st.sidebar.info("✅ 시스템 정상 작동 중")
+st.sidebar.markdown(f"**현재 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# 메인 페이지
+if page == "메인 페이지":
+    # 헤더
+    st.title("🧠 지식 정보 관리 시스템")
+    # st.markdown("### 효율적인 지식 정보 생성, 임베딩, 검색을 위한 통합 플랫폼")
+    st.switch_page("./main.py")
+
+
+elif page == "Page 1: 지식정보 생성":
+    st.switch_page("pages/Knowledge_1Generator.py")
+    # st.title("🗄️ DB Schema to RAG Knowledge Generator")
+elif page == "Page 2: 지식정보 임베딩":
+    st.title("인덱스 생성")
+    # st.switch_page("pages/Knowledge_2Embedding.py")
+elif page == "Page 3: 질문 및 검색" :
+    st.switch_page("pages/User_Question.py")
+
+
+
+
+
+
+
+
+# Option : Use AzureOpenAIEmbeddings with an Azure account
 embeddings: AzureOpenAIEmbeddings = AzureOpenAIEmbeddings(
     azure_deployment=azure_embedding_deployment,
     #openai_api_version=azure_openai_api_version,
@@ -49,6 +101,7 @@ with tab1:
         #indexes = list(client.list_indexes())
         indexes = client.list_indexes()
         name_box = []
+
         if indexes :
             for index in indexes:
                 name_box.append(index.name)
@@ -73,20 +126,35 @@ with tab1:
                     credential=AzureKeyCredential(ai_search_api_key)
                 )
 
-                st.subheader("📁 TXT 파일 업로드")
-                uploaded_file = st.file_uploader("TXT 파일을 선택하세요", type=['txt'])
+                st.subheader("📁 파일 업로드")
+                uploaded_file = st.file_uploader("업로드 파일을 선택하세요", type=['txt','md','json'])
 
                 if uploaded_file is not None:
+                    file_extension = uploaded_file.name.split('.')[-1].lower()
+                    if file_extension == 'txt':
+                        # TXT 파일 처리
+                        content = uploaded_file.read().decode('utf-8')
+                    elif file_extension == 'json':
+                        # JSON 파일 처리                  
+                        # # 
+                        # try:
+                        #     data = json.loads(uploaded_file)
+                        # except json.JSONDecodeError as e:
+                        #     st.write(f"JSON 파싱 오류: {e}")
+                        content = uploaded_file.read().decode('utf-8')      
+                        # content = json.load(uploaded_file)
+                    elif file_extension == 'md':
+                        # MD 파일 처리
+                        content = uploaded_file.read().decode('utf-8')
                     try:
                         # 파일 내용 직접 읽기
-                        content = uploaded_file.read().decode('utf-8')
-                        
+                        #                     
                         # Document 객체 직접 생성
                         document = Document(
                             page_content=content,
-                            metadata={"source": uploaded_file.name, "type": "txt"}
+                            metadata={"source": uploaded_file.name, "type": file_extension }
                         )
-                        st.success("TXT 파일이 성공적으로 로드되었습니다!")
+                        st.success(f"{file_extension}파일이 성공적으로 로드되었습니다!")
                         st.write(f"파일 크기: {len(content)} 문자")
                         
                         # 텍스트 분할
@@ -129,33 +197,50 @@ with tab2:
             index_name=new_index_name,
             embedding_function=embeddings.embed_query,
             )
-
-            st.subheader("📁 TXT 파일 업로드")
-            uploaded_file = st.file_uploader("TXT 파일을 선택하세요", type=['txt'])
+            search_client = SearchClient(
+            endpoint=ai_search_endpoint,
+            index_name=new_index_name,
+            credential=AzureKeyCredential(ai_search_api_key)
+            )
+            st.subheader("📁 파일 업로드")
+            uploaded_file = st.file_uploader("업로드 파일을 선택하세요", type=['txt','md','json'])
 
             if uploaded_file is not None:
+                st.write(uploaded_file.name)
+                file_extension = uploaded_file.name.split('.')[-1].lower()
+                st.write(file_extension)
+                if file_extension == 'txt':
+                    # TXT 파일 처리
+                    content = uploaded_file.read().decode('utf-8')
+                elif file_extension == 'json':
+                    # JSON 파일 처리                        
+                    content = json.load(uploaded_file)
+                elif file_extension == 'md':
+                    # MD 파일 처리
+                    content = uploaded_file.read().decode('utf-8')
                 try:
                     # 파일 내용 직접 읽기
-                    content = uploaded_file.read().decode('utf-8')
-                    
+                    #                     
                     # Document 객체 직접 생성
                     document = Document(
                         page_content=content,
-                        metadata={"source": uploaded_file.name, "type": "txt"}
+                        metadata={"source": uploaded_file.name, "type": file_extension }
                     )
-                    st.success("TXT 파일이 성공적으로 로드되었습니다!")
+                    st.success(f"{file_extension}파일이 성공적으로 로드되었습니다!")
                     st.write(f"파일 크기: {len(content)} 문자")
                     
                     # 텍스트 분할
                     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
                     docs = text_splitter.split_documents([document])
                     
-                    st.success(f"총 {len(docs)}개의 문서 청크가 생성(추가)되었습니다!")
+                    result = search_client.search("*", include_total_count=True, top=0)
+                    document_count = result.get_count()
                     
+                    st.success(f"총 {len(docs)}개의 문서 청크가 추가되었습니다!")
+                    st.info(f"검색된 문서 수: {document_count}")
                     # 벡터 스토어에 저장
                     vector_store.add_documents(documents=docs)
                     st.success("문서가 벡터 스토어에 저장되었습니다!")
-                    
                 except Exception as e:
                     st.error(f"TXT 파일 처리 중 오류 발생: {str(e)}")
 

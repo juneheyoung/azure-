@@ -32,7 +32,22 @@ search_endpoint = os.getenv("AZURE_AI_SEARCH_ENDPOINT")
 search_key = os.getenv("AZURE_AI_SERACH_KEY")
 
 
-
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    .css-1d391kg {
+        display: none !important;
+    }
+    .css-1rs6os {
+        display: none !important;
+    }
+    .css-17ziqus {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Streamlit 페이지 설정
 st.set_page_config(
@@ -40,8 +55,40 @@ st.set_page_config(
     page_icon="🔍",
     layout="wide"
 )
-st.title("🔍 RAG 시스템 - Azure AI Search")
-st.markdown("Azure AI Search에 저장된 지식을 활용한 질의응답 시스템")
+
+
+# 사이드바 설정
+page = st.sidebar.selectbox(
+    "페이지 선택",
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=3
+    )
+st.sidebar.markdown("### 📊 시스템 상태")
+# st.sidebar.info("✅ 시스템 정상 작동 중")
+st.sidebar.markdown(f"**현재 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# 메인 페이지
+if page == "메인 페이지":
+    # 헤더
+    st.title("🧠 지식 정보 관리 시스템")
+    # st.markdown("### 효율적인 지식 정보 생성, 임베딩, 검색을 위한 통합 플랫폼")
+    st.switch_page("./main.py")
+
+
+elif page == "Page 1: 지식정보 생성":
+    st.switch_page("pages/Knowledge_1Generator.py")
+    # st.title("🗄️ DB Schema to RAG Knowledge Generator")
+elif page == "Page 2: 지식정보 임베딩":
+    # st.title("인덱스 생성")
+    st.switch_page("pages/Knowledge_2Embedding.py")
+elif page == "Page 3: 질문 및 검색" :
+    st.title("🔍 RAG 시스템 - Azure AI Search")
+    st.markdown("Azure AI Search에 저장된 지식을 활용한 질의응답 시스템")
+    # st.switch_page("pages/User_Question.py")
+
+
+
+
+
 
 
 
@@ -73,12 +120,7 @@ try:
 except Exception as e:
     print(f"Error: {e}")
 
-# search 클라이언트 초기화
-search_client = SearchClient(
-    endpoint=search_endpoint,
-    index_name=index_name,
-    credential=AzureKeyCredential(search_key)
-)
+
 
 # 초기화 함수
 @st.cache_resource
@@ -113,8 +155,14 @@ def initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deploymen
             #temperature=temperature,
             #max_tokens=max_tokens
         )
+        # search 클라이언트 초기화
+        search_client = SearchClient(
+            endpoint=search_endpoint,
+            index_name=index_name,
+            credential=AzureKeyCredential(search_key)
+        )
         
-        return vector_store, llm, embeddings
+        return vector_store, llm, embeddings, search_client
         
     except Exception as e:
         st.error(f"RAG 시스템 초기화 중 오류 발생: {str(e)}")
@@ -158,7 +206,7 @@ def main():
         return
     
     # RAG 시스템 초기화
-    vector_store, llm, embeddings = initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
+    vector_store, llm, embeddings, search_client = initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deployment,embedding_deployment,search_endpoint,search_key,
                           index_name,embedding_endpoint,embedding_api_key)
     if vector_store is None or llm is None:
         st.error("RAG 시스템 초기화에 실패했습니다.")
@@ -222,14 +270,14 @@ def main():
                 
                 # 벡터 스토어에서 관련 문서 검색
                 # if search_type == "mmr":
-                st.write("test before")
+                # st.write("test before")
                 # retrieved_docs = vector_store.max_marginal_relevance_search(
                 #     question, k=1
                 #     )
                 retrieved_docs = vector_store.similarity_search(
                     question, k=1
                     )
-                st.write("test after")
+                # st.write("test after")
                 # # elif search_type == "similarity_score_threshold":
                 #     retrieved_docs = vector_store.similarity_search_with_relevance_scores(
                 #         question, k=k

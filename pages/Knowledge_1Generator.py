@@ -15,9 +15,27 @@ llm_endpoint = os.getenv("LLM_ENDPOINT")
 llm_api_version = os.getenv("LLM_API_VERSION")
 llm_deployment_name = os.getenv("LLM_DEPLOYMENT_NAME")
 
+
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    .css-1d391kg {
+        display: none !important;
+    }
+    .css-1rs6os {
+        display: none !important;
+    }
+    .css-17ziqus {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # AZURE_API_KEY
 # AZURE_ENDPOINT
-
+page = "Page 1: 지식정보 생성"
 # Streamlit 페이지 설정
 st.set_page_config(
     page_title="DB Schema to RAG Knowledge Generator",
@@ -26,16 +44,36 @@ st.set_page_config(
 )
 
 # 사이드바 설정
-#st.sidebar.title("Azure OpenAI 설정")
+page = st.sidebar.selectbox(
+    "페이지 선택",
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=1
+    )
+st.sidebar.markdown("### 📊 시스템 상태")
+# st.sidebar.info("✅ 시스템 정상 작동 중")
+st.sidebar.markdown(f"**현재 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-# Azure OpenAI 설정
-# azure_endpoint = st.sidebar.text_input("Azure OpenAI Endpoint", help="예: https://your-resource.openai.azure.com/")
-# api_key = st.sidebar.text_input("API Key", type="password")
-# api_version = st.sidebar.selectbox("API Version", ["2024-02-01", "2023-12-01-preview", "2023-10-01-preview"])
-# deployment_name = st.sidebar.text_input("Deployment Name", help="GPT-4 또는 GPT-3.5-turbo 배포 이름")
+# 메인 페이지
+if page == "메인 페이지":
+    # 헤더
+    st.title("🧠 지식 정보 관리 시스템")
+    # st.markdown("### 효율적인 지식 정보 생성, 임베딩, 검색을 위한 통합 플랫폼")
+    st.switch_page("./main.py")
+
+
+elif page == "Page 1: 지식정보 생성":
+    # st.switch_page("pages/Knowledge_1Generator.py")
+    st.title("🗄️ DB Schema to RAG Knowledge Generator")
+elif page == "Page 2: 지식정보 임베딩":
+    st.switch_page("pages/Knowledge_2Embedding.py")
+elif page == "Page 3: 질문 및 검색" :
+    st.switch_page("pages/User_Question.py")
+
+
+
+
 
 # 메인 타이틀
-st.title("🗄️ DB Schema to RAG Knowledge Generator")
+
 st.markdown("---")
 
 # 스키마 입력 방법 선택
@@ -212,7 +250,7 @@ if st.button("🚀 지식정보 생성", type="primary"):
         
         st.error("Azure OpenAI 설정을 완료해주세요!")
     else:
-        st.write(llm_deployment_name)
+        # st.write(llm_deployment_name)
         with st.spinner("지식정보를 생성하고 있습니다..."):
             client = initialize_azure_client()
             if client:
