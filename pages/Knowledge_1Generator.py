@@ -15,7 +15,6 @@ llm_endpoint = os.getenv("LLM_ENDPOINT")
 llm_api_version = os.getenv("LLM_API_VERSION")
 llm_deployment_name = os.getenv("LLM_DEPLOYMENT_NAME")
 
-
 st.markdown("""
 <style>
     [data-testid="stSidebarNav"] {
@@ -33,12 +32,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# AZURE_API_KEY
-# AZURE_ENDPOINT
+
 page = "Page 1: 지식정보 생성"
-# Streamlit 페이지 설정
 st.set_page_config(
-    page_title="DB Schema to RAG Knowledge Generator",
+    page_title="지식정보 생성",
     page_icon="🗄️",
     layout="wide"
 )
@@ -46,7 +43,7 @@ st.set_page_config(
 # 사이드바 설정
 page = st.sidebar.selectbox(
     "페이지 선택",
-    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=1
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 저장", "Page 3: 질문 및 검색"],index=1
     )
 st.sidebar.markdown("### 📊 시스템 상태")
 # st.sidebar.info("✅ 시스템 정상 작동 중")
@@ -55,15 +52,14 @@ st.sidebar.markdown(f"**현재 시간**: {datetime.now().strftime('%Y-%m-%d %H:%
 # 메인 페이지
 if page == "메인 페이지":
     # 헤더
-    st.title("🧠 지식 정보 관리 시스템")
+    # st.title("🧠 지식 정보 관리 시스템")
     # st.markdown("### 효율적인 지식 정보 생성, 임베딩, 검색을 위한 통합 플랫폼")
     st.switch_page("./main.py")
 
-
 elif page == "Page 1: 지식정보 생성":
     # st.switch_page("pages/Knowledge_1Generator.py")
-    st.title("🗄️ DB Schema to RAG Knowledge Generator")
-elif page == "Page 2: 지식정보 임베딩":
+    st.title("🗄️ 지식정보 생성")
+elif page == "Page 2: 지식정보 저장":
     st.switch_page("pages/Knowledge_2Embedding.py")
 elif page == "Page 3: 질문 및 검색" :
     st.switch_page("pages/User_Question.py")
@@ -77,7 +73,7 @@ elif page == "Page 3: 질문 및 검색" :
 st.markdown("---")
 
 # 스키마 입력 방법 선택
-input_method = st.radio("스키마 입력 방법을 선택하세요:", ["SQL DDL 입력", "텍스트 입력", "JSON 파일 업로드" ])
+input_method = st.radio("스키마 입력 방법을 선택하세요:", ["SQL DDL 입력", "텍스트 입력", "파일 업로드" ])
 
 schema_data = None
 
@@ -105,16 +101,23 @@ if input_method == "텍스트 입력":
     if schema_input:
         schema_data = schema_input
 
-elif input_method == "JSON 파일 업로드":
-    st.subheader("📁 JSON 파일 업로드")
-    uploaded_file = st.file_uploader("JSON 파일을 선택하세요", type=['json'])
+elif input_method == "파일 업로드":
+    st.subheader("📁 파일 업로드")
+    uploaded_file = st.file_uploader("업로드 파일을 선택하세요", type=['json','txt','md'])
+    
     if uploaded_file is not None:
+        file_extension = uploaded_file.name.split('.')[-1].lower()
         try:
-            schema_data = json.load(uploaded_file)
-            st.success("JSON 파일이 성공적으로 로드되었습니다!")
-            st.json(schema_data)
+            if file_extension == 'txt' or 'md':
+                schema_data = uploaded_file.read().decode('utf-8')
+            elif file_extension == 'json':
+                schema_data = json.load(uploaded_file)
+        
+            
+            st.success(f"{file_extension} 파일이 성공적으로 업로드되었습니다!")
+            # st.json(schema_data)
         except Exception as e:
-            st.error(f"JSON 파일 로드 중 오류 발생: {str(e)}")
+            st.error(f"{file_extension} 파일 로드 중 오류 발생: {str(e)}")
 
 elif input_method == "SQL DDL 입력":
     st.subheader("🗃️ SQL DDL 입력")

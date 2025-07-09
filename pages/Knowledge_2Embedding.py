@@ -50,7 +50,7 @@ st.markdown("""
 
 page = st.sidebar.selectbox(
     "페이지 선택",
-    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=2
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 저장", "Page 3: 질문 및 검색"],index=2
     )
 st.sidebar.markdown("### 📊 시스템 상태")
 # st.sidebar.info("✅ 시스템 정상 작동 중")
@@ -206,9 +206,9 @@ with tab2:
             uploaded_file = st.file_uploader("업로드 파일을 선택하세요", type=['txt','md','json'])
 
             if uploaded_file is not None:
-                st.write(uploaded_file.name)
+                # st.write(uploaded_file.name)
                 file_extension = uploaded_file.name.split('.')[-1].lower()
-                st.write(file_extension)
+                # st.write(file_extension)
                 if file_extension == 'txt':
                     # TXT 파일 처리
                     content = uploaded_file.read().decode('utf-8')

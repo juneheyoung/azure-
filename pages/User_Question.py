@@ -14,7 +14,9 @@ from azure.core.credentials import AzureKeyCredential
 from openai import AzureOpenAI
 from azure.search.documents.indexes import SearchIndexClient
 from datetime import datetime
+from azure.storage.blob import BlobServiceClient
 
+#####
 
 load_dotenv()
 
@@ -60,7 +62,7 @@ st.set_page_config(
 # 사이드바 설정
 page = st.sidebar.selectbox(
     "페이지 선택",
-    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 임베딩", "Page 3: 질문 및 검색",],index=3
+    ["메인 페이지", "Page 1: 지식정보 생성", "Page 2: 지식정보 저장", "Page 3: 질문 및 검색"],index=3
     )
 st.sidebar.markdown("### 📊 시스템 상태")
 # st.sidebar.info("✅ 시스템 정상 작동 중")
@@ -143,6 +145,7 @@ def initialize_rag_system(llm_api_key,llm_endpoint,llm_api_version,llm_deploymen
             azure_search_key=search_key,
             index_name=index_name,
             embedding_function=embeddings,
+            search_type='hybrid'
         )
         
         # Azure OpenAI LLM 초기화
@@ -211,35 +214,7 @@ def main():
     if vector_store is None or llm is None:
         st.error("RAG 시스템 초기화에 실패했습니다.")
         return
-
-
-    # 연결 테스트
-    # col1, col2 = st.columns(2)
-    # with col1:
-    #     if st.button("🔍 벡터 스토어 연결 테스트"):
-    #         try:
-    #             # 간단한 검색 테스트
-    #             result = search_client.search("*", include_total_count=True, top=0)
-    #             document_count = result.get_count()
-
-    #             st.success(f"✅ 벡터 스토어 연결 성공! (인덱스: {index_name})")
-    #             st.info(f"검색된 문서 수: {document_count}")
-    #         except Exception as e:
-    #             st.error(f"❌ 벡터 스토어 연결 실패: {str(e)}")
     
-    # with col2:
-    #     if st.button("🤖 LLM 연결 테스트"):
-    #         try:
-    #             test_response = llm.invoke("안녕하세요")
-    #             #llm.completions.create(prompt = "안녕하세요")
-    #             st.success("✅ LLM 연결 성공!")
-    #             st.info(f"테스트 응답: {test_response[:100]}...")
-    #         except Exception as e:
-    #             st.error(f"❌ LLM 연결 실패: {str(e)}")
-    
-    # st.divider()
-    
-            
 
     
     # 질의응답 섹션
@@ -262,7 +237,7 @@ def main():
     # 검색 및 답변 생성
     if search_button and question:
         with st.spinner("검색 중..."):
-            try:
+            try:   
                 # 검색 설정
                 # search_kwargs = {"k": k}
                 # if search_type == "similarity_score_threshold":
@@ -332,7 +307,8 @@ def main():
                                 "question": question,
                                 "answer": response,
                                 "retrieved_docs": len(retrieved_docs),
-                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")                
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),      
+                                "index_name": index_name          
                             })
                             
                         except Exception as e:
@@ -344,16 +320,22 @@ def main():
             except Exception as e:
                 st.error(f"검색 중 오류 발생: {str(e)}")
     
+
+
+    
     # 대화 기록 표시
     if 'chat_history' in st.session_state and st.session_state['chat_history']:
         st.divider()
-        st.header("📋 대화 기록")
-        
+        st.header(f"📋 대화 기록")
+        # st.write(f"현재 index : {index_name}")
+        # st.write(st.session_state['chat_history'])
+
         for i, chat in enumerate(reversed(st.session_state['chat_history'])):
             with st.expander(f"💭 {chat['question'][:50]}... ({chat['timestamp']})"):
+                st.write(index_name)                
                 st.write("**질문:**", chat['question'])
                 st.write("**답변:**", chat['answer'])
                 st.write(f"**검색된 문서 수:** {chat['retrieved_docs']}")
-
+                
 if __name__ == "__main__":
     main()
