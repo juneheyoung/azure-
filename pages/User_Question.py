@@ -14,7 +14,7 @@ from azure.core.credentials import AzureKeyCredential
 from openai import AzureOpenAI
 from azure.search.documents.indexes import SearchIndexClient
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient
+
 
 #####
 
