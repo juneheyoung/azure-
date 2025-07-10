@@ -81,3 +81,8 @@ FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE SET NULL
 사용된 테이블: Comments, Users, Posts
 
 설명: 최신 댓글 정보를 바탕으로 관련 사용자와 게시글 정보를 함께 조회합니다.
+
+
+-----
+
+user19webapp-e3bkg9beaxgwfebk.canadacentral-01.azurewebsites.net
